@@ -5,14 +5,13 @@ Educational security research tool
 Created by CyberM
 """
 
-import requests
 import json
 import re
 import time
 import random
-import uuid
 import os
 import sys
+import subprocess
 from datetime import datetime
 from colorama import init, Fore, Style
 
@@ -52,7 +51,7 @@ def show_banner():
 
 COUNTRY_CODES = {
     '+1': 'USA/Canada', '+34': 'Spain', '+212': 'Morocco', '+213': 'Algeria',
-    '+44': 'United Kingdom', '+33': 'France', '+49': 'Germany', '+39': 'Italy',
+    '+44': 'UK', '+33': 'France', '+49': 'Germany', '+39': 'Italy',
     '+351': 'Portugal', '+91': 'India', '+86': 'China', '+81': 'Japan',
     '+55': 'Brazil', '+61': 'Australia', '+7': 'Russia', '+20': 'Egypt',
     '+90': 'Turkey', '+966': 'Saudi Arabia', '+971': 'UAE', '+972': 'Israel',
@@ -63,32 +62,11 @@ EMAIL_PROVIDERS = {
     'outlook.com': 'Microsoft', 'protonmail.com': 'ProtonMail', 'icloud.com': 'Apple',
 }
 
-USER_AGENTS = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-]
-
 
 class InstaTracer:
     def __init__(self, verbose=False):
         self.verbose = verbose
-        self.session = requests.Session()
         self.results = []
-        self._update_headers()
-
-    def _update_headers(self):
-        self.session.headers.update({
-            'user-agent': random.choice(USER_AGENTS),
-            'accept': '*/*',
-            'content-type': 'application/x-www-form-urlencoded',
-        })
-
-    def _get_csrf(self):
-        try:
-            self.session.get('https://www.instagram.com/', timeout=10)
-            return self.session.cookies.get('csrftoken')
-        except:
-            return None
 
     def _extract_country(self, phone):
         if not phone:
@@ -103,85 +81,69 @@ class InstaTracer:
         return None, None
 
     def check_account(self, username):
+        """Check account using curl"""
+        
         time.sleep(random.uniform(1, 1.5))
-        csrf = self._get_csrf()
-        if not csrf:
-            return None
-        self.session.headers.update({'x-csrftoken': csrf})
-        variables = {
-            "params": {
-                "event_request_id": str(uuid.uuid4()),
-                "next_uri": "",
-                "search_query": username,
-                "waterfall_id": str(uuid.uuid4())
-            }
-        }
-        data = {
-            "variables": json.dumps(variables),
-            "doc_id": "26178667145161478"
-        }
+        
+        cmd = [
+            'curl', '-s', '-X', 'POST',
+            'https://www.instagram.com/api/graphql',
+            '-H', 'content-type: application/x-www-form-urlencoded',
+            '-H', 'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            '--data-raw', f'variables={{"params":{{"search_query":"{username}","event_request_id":"{os.urandom(16).hex()}","next_uri":"","waterfall_id":"{os.urandom(16).hex()}"}}}}&doc_id=26178667145161478'
+        ]
+        
         try:
-            response = self.session.post(
-                'https://www.instagram.com/api/graphql',
-                data=data,
-                timeout=15
-            )
-            if response.status_code == 429:
-                return None
-            if response.status_code != 200:
-                return None
-            result = response.json()
-            search = result.get('data', {}).get('caa_ar_ig_account_search', {})
-            if search.get('cipher'):
-                return {
-                    'exists': True,
-                    'contact_points': search.get('contact_points', [])
-                }
-            return {'exists': False}
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            
+            if result.returncode == 0 and result.stdout:
+                data = json.loads(result.stdout)
+                search = data.get('data', {}).get('caa_ar_ig_account_search', {})
+                
+                if search.get('cipher'):
+                    return {
+                        'exists': True,
+                        'contact_points': search.get('contact_points', [])
+                    }
+                return {'exists': False}
+                
         except Exception as e:
             if self.verbose:
                 print(f"{Fore.RED}[-] Error: {e}")
-            return None
+        
+        return None
 
     def get_profile(self, username):
-        """Get profile info - same headers as working curl"""
+        """Get profile info using curl (working)"""
         
         time.sleep(random.uniform(1.5, 2.5))
         
+        cmd = [
+            'curl', '-s',
+            f'https://i.instagram.com/api/v1/users/web_profile_info/?username={username}',
+            '-H', 'User-Agent: Instagram 269.0.0.18.80 (iPhone; iOS 16_5; en_US; en; scale=3.00; 1170x2532; 428809312)',
+            '-H', 'Accept: application/json',
+            '-H', 'X-IG-App-ID: 936619743392459',
+            '--max-time', '10'
+        ]
+        
         try:
-            # Create a new session for profile request
-            profile_session = requests.Session()
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
             
-            url = f"https://i.instagram.com/api/v1/users/web_profile_info/?username={username}"
-            
-            # EXACT headers that curl used (working)
-            profile_session.headers.update({
-                'User-Agent': 'Instagram 269.0.0.18.80 (iPhone; iOS 16_5; en_US; en; scale=3.00; 1170x2532; 428809312)',
-                'Accept': 'application/json',
-                'X-IG-App-ID': '936619743392459',
-            })
-            
-            response = profile_session.get(url, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
+            if result.returncode == 0 and result.stdout:
+                data = json.loads(result.stdout)
                 user = data.get('data', {}).get('user', {})
                 
-                if self.verbose:
-                    print(f"{Fore.GREEN}[+] Profile loaded: {user.get('full_name', username)}")
-                
-                return {
-                    'followers': user.get('edge_followed_by', {}).get('count', 0),
-                    'following': user.get('edge_follow', {}).get('count', 0),
-                    'posts': user.get('edge_owner_to_timeline_media', {}).get('count', 0),
-                    'is_verified': user.get('is_verified', False),
-                    'is_private': user.get('is_private', False),
-                    'full_name': user.get('full_name', ''),
-                    'bio': user.get('biography', '')[:300],
-                }
-            else:
-                if self.verbose:
-                    print(f"{Fore.YELLOW}[!] Profile API returned {response.status_code}")
+                if user:
+                    return {
+                        'followers': user.get('edge_followed_by', {}).get('count', 0),
+                        'following': user.get('edge_follow', {}).get('count', 0),
+                        'posts': user.get('edge_owner_to_timeline_media', {}).get('count', 0),
+                        'is_verified': user.get('is_verified', False),
+                        'is_private': user.get('is_private', False),
+                        'full_name': user.get('full_name', ''),
+                        'bio': user.get('biography', '')[:300],
+                    }
                 
         except Exception as e:
             if self.verbose:
@@ -332,7 +294,7 @@ class InstaTracer:
 
 
 def main():
-    tracer = InstaTracer(verbose=True)  # Enable verbose to see debug output
+    tracer = InstaTracer(verbose=True)
     while True:
         clear_screen()
         show_banner()
