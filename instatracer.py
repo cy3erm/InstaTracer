@@ -2,6 +2,7 @@
 """
 InstaTracer - Instagram Intelligence Tool
 Educational security research tool
+Created by CyberM
 """
 
 import requests
@@ -9,244 +10,57 @@ import json
 import re
 import time
 import random
-import argparse
 import uuid
+import os
+import sys
 from datetime import datetime
 from colorama import init, Fore, Style
 
 init(autoreset=True)
 
+def clear_screen():
+    os.system('clear' if os.name == 'posix' else 'cls')
+
+def show_banner():
+    banner = f"""
+{Fore.CYAN}{Style.BRIGHT}
+╔═══════════════════════════════════════════════════════════════════════════════════════════════════════╗
+║           $$$$$$\                       $$\            $$$$$$$$\                                      ║
+║           \_$$  _|                      $$ |           \__$$  __|                                     ║
+║             $$ |  $$$$$$$\   $$$$$$$\ $$$$$$\    $$$$$$\  $$ | $$$$$$\  $$$$$$\   $$$$$$$\  $$$$$$\   ║
+║             $$ |  $$  __$$\ $$  _____|\_$$  _|   \____$$\ $$ |$$  __$$\ \____$$\ $$  _____|$$  __$$\  ║
+║             $$ |  $$ |  $$ |\$$$$$$\    $$ |     $$$$$$$ |$$ |$$ |  \__|$$$$$$$ |$$ /      $$$$$$$$ | ║
+║             $$ |  $$ |  $$ | \____$$\   $$ |$$\ $$  __$$ |$$ |$$ |     $$  __$$ |$$ |      $$   ____| ║
+║          $$$$$$\ $$ |  $$ |$$$$$$$  |  \$$$$  |\$$$$$$$ |$$ |$$ |     \$$$$$$$ |\$$$$$$$\ \$$$$$$$\   ║
+║          \______|\__|  \__|\_______/    \____/  \_______|\__|\__|      \_______| \_______| \_______|  ║
+║                         Instagram Intelligence Tool                                                   ║
+║                         Created by CyberM                                                             ║
+║                                                                                                       ║
+╠═══════════════════════════════════════════════════════════════════════════════════════════════════════╣
+║                                                                                                       ║
+║  {Fore.GREEN}[1]{Fore.WHITE} Check Single Account                                                                             ║
+║  {Fore.GREEN}[2]{Fore.WHITE} Bulk Check from File                                                                             ║
+║  {Fore.GREEN}[3]{Fore.WHITE} View Statistics                                                                                  ║
+║  {Fore.GREEN}[4]{Fore.WHITE} Export Results                                                                                   ║
+║  {Fore.GREEN}[5]{Fore.WHITE} Clear Screen                                                                                     ║
+║  {Fore.GREEN}[0]{Fore.WHITE} Exit                                                                                             ║
+║                                                                                                       ║
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════╝
+{Style.RESET_ALL}
+"""
+    print(banner)
+
 COUNTRY_CODES = {
-    '+1': 'USA/Canada',
-    '+7': 'Russia/Kazakhstan',
-    '+20': 'Egypt',
-    '+27': 'South Africa',
-    '+30': 'Greece',
-    '+31': 'Netherlands',
-    '+32': 'Belgium',
-    '+33': 'France',
-    '+34': 'Spain',
-    '+36': 'Hungary',
-    '+39': 'Italy',
-    '+40': 'Romania',
-    '+41': 'Switzerland',
-    '+43': 'Austria',
-    '+44': 'United Kingdom',
-    '+45': 'Denmark',
-    '+46': 'Sweden',
-    '+47': 'Norway',
-    '+48': 'Poland',
-    '+49': 'Germany',
-    '+51': 'Peru',
-    '+52': 'Mexico',
-    '+53': 'Cuba',
-    '+54': 'Argentina',
-    '+55': 'Brazil',
-    '+56': 'Chile',
-    '+57': 'Colombia',
-    '+58': 'Venezuela',
-    '+60': 'Malaysia',
-    '+61': 'Australia',
-    '+62': 'Indonesia',
-    '+63': 'Philippines',
-    '+64': 'New Zealand',
-    '+65': 'Singapore',
-    '+66': 'Thailand',
-    '+81': 'Japan',
-    '+82': 'South Korea',
-    '+84': 'Vietnam',
-    '+86': 'China',
-    '+90': 'Turkey',
-    '+91': 'India',
-    '+92': 'Pakistan',
-    '+93': 'Afghanistan',
-    '+94': 'Sri Lanka',
-    '+95': 'Myanmar',
-    '+98': 'Iran',
-    '+212': 'Morocco',
-    '+213': 'Algeria',
-    '+216': 'Tunisia',
-    '+218': 'Libya',
-    '+220': 'Gambia',
-    '+221': 'Senegal',
-    '+222': 'Mauritania',
-    '+223': 'Mali',
-    '+224': 'Guinea',
-    '+225': 'Ivory Coast',
-    '+226': 'Burkina Faso',
-    '+227': 'Niger',
-    '+228': 'Togo',
-    '+229': 'Benin',
-    '+230': 'Mauritius',
-    '+231': 'Liberia',
-    '+232': 'Sierra Leone',
-    '+233': 'Ghana',
-    '+234': 'Nigeria',
-    '+235': 'Chad',
-    '+236': 'Central African Republic',
-    '+237': 'Cameroon',
-    '+238': 'Cape Verde',
-    '+239': 'Sao Tome',
-    '+240': 'Equatorial Guinea',
-    '+241': 'Gabon',
-    '+242': 'Republic of Congo',
-    '+243': 'DR Congo',
-    '+244': 'Angola',
-    '+245': 'Guinea-Bissau',
-    '+246': 'Diego Garcia',
-    '+247': 'Ascension Island',
-    '+248': 'Seychelles',
-    '+249': 'Sudan',
-    '+250': 'Rwanda',
-    '+251': 'Ethiopia',
-    '+252': 'Somalia',
-    '+253': 'Djibouti',
-    '+254': 'Kenya',
-    '+255': 'Tanzania',
-    '+256': 'Uganda',
-    '+257': 'Burundi',
-    '+258': 'Mozambique',
-    '+260': 'Zambia',
-    '+261': 'Madagascar',
-    '+262': 'Reunion',
-    '+263': 'Zimbabwe',
-    '+264': 'Namibia',
-    '+265': 'Malawi',
-    '+266': 'Lesotho',
-    '+267': 'Botswana',
-    '+268': 'Eswatini',
-    '+269': 'Comoros',
-    '+290': 'Saint Helena',
-    '+291': 'Eritrea',
-    '+297': 'Aruba',
-    '+298': 'Faroe Islands',
-    '+299': 'Greenland',
-    '+350': 'Gibraltar',
-    '+351': 'Portugal',
-    '+352': 'Luxembourg',
-    '+353': 'Ireland',
-    '+354': 'Iceland',
-    '+355': 'Albania',
-    '+356': 'Malta',
-    '+357': 'Cyprus',
-    '+358': 'Finland',
-    '+359': 'Bulgaria',
-    '+370': 'Lithuania',
-    '+371': 'Latvia',
-    '+372': 'Estonia',
-    '+373': 'Moldova',
-    '+374': 'Armenia',
-    '+375': 'Belarus',
-    '+376': 'Andorra',
-    '+377': 'Monaco',
-    '+378': 'San Marino',
-    '+379': 'Vatican City',
-    '+380': 'Ukraine',
-    '+381': 'Serbia',
-    '+382': 'Montenegro',
-    '+383': 'Kosovo',
-    '+385': 'Croatia',
-    '+386': 'Slovenia',
-    '+387': 'Bosnia and Herzegovina',
-    '+389': 'North Macedonia',
-    '+420': 'Czech Republic',
-    '+421': 'Slovakia',
-    '+423': 'Liechtenstein',
-    '+500': 'Falkland Islands',
-    '+501': 'Belize',
-    '+502': 'Guatemala',
-    '+503': 'El Salvador',
-    '+504': 'Honduras',
-    '+505': 'Nicaragua',
-    '+506': 'Costa Rica',
-    '+507': 'Panama',
-    '+508': 'Saint Pierre and Miquelon',
-    '+509': 'Haiti',
-    '+590': 'Guadeloupe',
-    '+591': 'Bolivia',
-    '+592': 'Guyana',
-    '+593': 'Ecuador',
-    '+594': 'French Guiana',
-    '+595': 'Paraguay',
-    '+596': 'Martinique',
-    '+597': 'Suriname',
-    '+598': 'Uruguay',
-    '+599': 'Netherlands Antilles',
-    '+670': 'East Timor',
-    '+672': 'Australian External Territories',
-    '+673': 'Brunei',
-    '+674': 'Nauru',
-    '+675': 'Papua New Guinea',
-    '+676': 'Tonga',
-    '+677': 'Solomon Islands',
-    '+678': 'Vanuatu',
-    '+679': 'Fiji',
-    '+680': 'Palau',
-    '+681': 'Wallis and Futuna',
-    '+682': 'Cook Islands',
-    '+683': 'Niue',
-    '+685': 'Samoa',
-    '+686': 'Kiribati',
-    '+687': 'New Caledonia',
-    '+688': 'Tuvalu',
-    '+689': 'French Polynesia',
-    '+690': 'Tokelau',
-    '+691': 'Micronesia',
-    '+692': 'Marshall Islands',
-    '+800': 'International Freephone',
-    '+808': 'International Shared Cost',
-    '+850': 'North Korea',
-    '+852': 'Hong Kong',
-    '+853': 'Macau',
-    '+855': 'Cambodia',
-    '+856': 'Laos',
-    '+870': 'Inmarsat',
-    '+878': 'Universal Personal Telecommunications',
-    '+880': 'Bangladesh',
-    '+881': 'Mobile Satellite System',
-    '+882': 'International Networks',
-    '+886': 'Taiwan',
-    '+960': 'Maldives',
-    '+961': 'Lebanon',
-    '+962': 'Jordan',
-    '+963': 'Syria',
-    '+964': 'Iraq',
-    '+965': 'Kuwait',
-    '+966': 'Saudi Arabia',
-    '+967': 'Yemen',
-    '+968': 'Oman',
-    '+970': 'Palestine',
-    '+971': 'United Arab Emirates',
-    '+972': 'Israel',
-    '+973': 'Bahrain',
-    '+974': 'Qatar',
-    '+975': 'Bhutan',
-    '+976': 'Mongolia',
-    '+977': 'Nepal',
-    '+992': 'Tajikistan',
-    '+993': 'Turkmenistan',
-    '+994': 'Azerbaijan',
-    '+995': 'Georgia',
-    '+996': 'Kyrgyzstan',
-    '+998': 'Uzbekistan',
+    '+1': 'USA/Canada', '+34': 'Spain', '+212': 'Morocco', '+213': 'Algeria',
+    '+44': 'United Kingdom', '+33': 'France', '+49': 'Germany', '+39': 'Italy',
+    '+351': 'Portugal', '+91': 'India', '+86': 'China', '+81': 'Japan',
+    '+55': 'Brazil', '+61': 'Australia', '+7': 'Russia', '+20': 'Egypt',
+    '+90': 'Turkey', '+966': 'Saudi Arabia', '+971': 'UAE', '+972': 'Israel',
 }
 
 EMAIL_PROVIDERS = {
-    'gmail.com': 'Google',
-    'yahoo.com': 'Yahoo',
-    'hotmail.com': 'Microsoft',
-    'outlook.com': 'Microsoft',
-    'protonmail.com': 'ProtonMail',
-    'icloud.com': 'Apple',
-    'aol.com': 'AOL',
-    'mail.com': 'Mail.com',
-    'yandex.com': 'Yandex',
-    'mail.ru': 'Mail.ru',
-    'qq.com': 'QQ',
-    '163.com': 'NetEase',
-    'zoho.com': 'Zoho',
-    'fastmail.com': 'Fastmail',
-    'gmx.com': 'GMX',
+    'gmail.com': 'Google', 'yahoo.com': 'Yahoo', 'hotmail.com': 'Microsoft',
+    'outlook.com': 'Microsoft', 'protonmail.com': 'ProtonMail', 'icloud.com': 'Apple',
 }
 
 USER_AGENTS = [
@@ -259,6 +73,7 @@ class InstaTracer:
     def __init__(self, verbose=False):
         self.verbose = verbose
         self.session = requests.Session()
+        self.results = []
         self._update_headers()
 
     def _update_headers(self):
@@ -278,7 +93,6 @@ class InstaTracer:
     def _extract_country(self, phone):
         if not phone:
             return None, None
-
         match = re.match(r'(\+\d{1,4})', phone)
         if match:
             code = match.group(1)
@@ -286,18 +100,14 @@ class InstaTracer:
                 if phone.startswith(prefix):
                     return prefix, country
             return code, COUNTRY_CODES.get(code, 'Unknown')
-
         return None, None
 
     def check_account(self, username):
         time.sleep(random.uniform(1, 1.5))
-
         csrf = self._get_csrf()
         if not csrf:
             return None
-
         self.session.headers.update({'x-csrftoken': csrf})
-
         variables = {
             "params": {
                 "event_request_id": str(uuid.uuid4()),
@@ -306,57 +116,60 @@ class InstaTracer:
                 "waterfall_id": str(uuid.uuid4())
             }
         }
-
         data = {
             "variables": json.dumps(variables),
             "doc_id": "26178667145161478"
         }
-
         try:
             response = self.session.post(
                 'https://www.instagram.com/api/graphql',
                 data=data,
                 timeout=15
             )
-
             if response.status_code == 429:
                 return None
-
             if response.status_code != 200:
                 return None
-
             result = response.json()
             search = result.get('data', {}).get('caa_ar_ig_account_search', {})
-
             if search.get('cipher'):
                 return {
                     'exists': True,
                     'contact_points': search.get('contact_points', [])
                 }
             return {'exists': False}
-
         except Exception as e:
             if self.verbose:
                 print(f"{Fore.RED}[-] Error: {e}")
             return None
 
     def get_profile(self, username):
+        """Get profile info - same headers as working curl"""
+        
+        time.sleep(random.uniform(1.5, 2.5))
+        
         try:
-            session = requests.Session()
+            # Create a new session for profile request
+            profile_session = requests.Session()
+            
             url = f"https://i.instagram.com/api/v1/users/web_profile_info/?username={username}"
-
-            session.headers.update({
+            
+            # EXACT headers that curl used (working)
+            profile_session.headers.update({
                 'User-Agent': 'Instagram 269.0.0.18.80 (iPhone; iOS 16_5; en_US; en; scale=3.00; 1170x2532; 428809312)',
                 'Accept': 'application/json',
                 'X-IG-App-ID': '936619743392459',
             })
-
-            response = session.get(url, timeout=10)
-
+            
+            response = profile_session.get(url, timeout=10)
+            
             if response.status_code == 200:
                 data = response.json()
                 user = data.get('data', {}).get('user', {})
-
+                
+                if self.verbose:
+                    print(f"{Fore.GREEN}[+] Profile loaded: {user.get('full_name', username)}")
+                
                 return {
                     'followers': user.get('edge_followed_by', {}).get('count', 0),
                     'following': user.get('edge_follow', {}).get('count', 0),
@@ -366,11 +179,14 @@ class InstaTracer:
                     'full_name': user.get('full_name', ''),
                     'bio': user.get('biography', '')[:300],
                 }
-
+            else:
+                if self.verbose:
+                    print(f"{Fore.YELLOW}[!] Profile API returned {response.status_code}")
+                
         except Exception as e:
             if self.verbose:
                 print(f"{Fore.YELLOW}[!] Profile error: {e}")
-
+        
         return {}
 
     def analyze(self, username):
@@ -390,13 +206,13 @@ class InstaTracer:
             'bio': '',
             'timestamp': datetime.now().isoformat()
         }
-
+        
         check = self.check_account(username)
         if not check or not check.get('exists'):
             return result
-
+        
         result['exists'] = True
-
+        
         for contact in check.get('contact_points', []):
             if contact.get('type') == 'EMAIL':
                 result['email'] = contact.get('contact_point')
@@ -407,84 +223,138 @@ class InstaTracer:
                 result['phone'] = contact.get('contact_point')
                 _, country = self._extract_country(result['phone'])
                 result['country'] = country
-
+        
         profile = self.get_profile(username)
         result.update(profile)
-
+        
         return result
 
     def print_result(self, result):
         if not result['exists']:
-            print(f"{Fore.RED}❌ {result['username']}: Account does not exist")
+            print(f"\n{Fore.RED}❌ {result['username']}: Account does not exist")
             return
-
-        print(f"\n{Fore.GREEN}✅ {result['username']}: Account exists!")
-
+        
+        print(f"\n{Fore.GREEN}{Style.BRIGHT}✅ {result['username']}: Account exists!{Style.RESET_ALL}")
+        
         if result['full_name']:
-            print(f"   👤 Name: {result['full_name']}")
-
+            print(f"   {Fore.CYAN}👤 Name:{Fore.WHITE} {result['full_name']}")
         if result['bio']:
             bio = result['bio'][:80] + '...' if len(result['bio']) > 80 else result['bio']
-            print(f"   📝 Bio: {bio}")
-
+            print(f"   {Fore.CYAN}📝 Bio:{Fore.WHITE} {bio}")
+        
         if result['followers']:
-            print(f"   👥 Followers: {result['followers']:,}")
-            print(f"   🔄 Following: {result['following']:,}")
-            print(f"   📸 Posts: {result['posts']:,}")
-
+            print(f"   {Fore.CYAN}👥 Followers:{Fore.WHITE} {result['followers']:,}")
+            print(f"   {Fore.CYAN}🔄 Following:{Fore.WHITE} {result['following']:,}")
+            print(f"   {Fore.CYAN}📸 Posts:{Fore.WHITE} {result['posts']:,}")
+        
         if result['is_private']:
-            print(f"   🔒 Private account")
-
+            print(f"   {Fore.YELLOW}🔒 Private account")
         if result['is_verified']:
-            print(f"   ✓ Verified")
-
+            print(f"   {Fore.BLUE}✓ Verified")
+        
         if result['email']:
-            print(f"   📧 Email: {result['email']} ({result['email_provider']})")
-
+            print(f"   {Fore.CYAN}📧 Email:{Fore.WHITE} {result['email']} ({result['email_provider']})")
         if result['phone']:
-            print(f"   📱 Phone: {result['phone']}")
-
+            print(f"   {Fore.CYAN}📱 Phone:{Fore.WHITE} {result['phone']}")
         if result['country']:
-            print(f"   🌍 Country: {result['country']}")
+            print(f"   {Fore.CYAN}🌍 Country:{Fore.WHITE} {result['country']}")
+
+    def single_check(self):
+        clear_screen()
+        show_banner()
+        username = input(f"\n{Fore.CYAN}[?] Enter Instagram username: {Fore.WHITE}").strip()
+        if not username:
+            print(f"{Fore.RED}[-] Username required")
+            input(f"\n{Fore.YELLOW}Press Enter to continue...")
+            return
+        print(f"\n{Fore.YELLOW}[*] Checking {username}...{Fore.WHITE}")
+        result = self.analyze(username)
+        self.print_result(result)
+        self.results.append(result)
+        input(f"\n{Fore.YELLOW}Press Enter to continue...")
+
+    def bulk_check(self):
+        clear_screen()
+        show_banner()
+        filename = input(f"\n{Fore.CYAN}[?] Enter filename with usernames (one per line): {Fore.WHITE}").strip()
+        if not os.path.exists(filename):
+            print(f"{Fore.RED}[-] File not found: {filename}")
+            input(f"\n{Fore.YELLOW}Press Enter to continue...")
+            return
+        with open(filename, 'r') as f:
+            usernames = [line.strip() for line in f if line.strip()]
+        print(f"\n{Fore.GREEN}[+] Loaded {len(usernames)} usernames{Fore.WHITE}")
+        for i, username in enumerate(usernames):
+            print(f"\n{Fore.YELLOW}[{i+1}/{len(usernames)}] Checking {username}...{Fore.WHITE}")
+            result = self.analyze(username)
+            self.print_result(result)
+            self.results.append(result)
+        input(f"\n{Fore.YELLOW}Press Enter to continue...")
+
+    def show_stats(self):
+        clear_screen()
+        show_banner()
+        if not self.results:
+            print(f"\n{Fore.YELLOW}[!] No results yet. Run some checks first.{Fore.WHITE}")
+            input(f"\n{Fore.YELLOW}Press Enter to continue...")
+            return
+        accounts = [r for r in self.results if r['exists']]
+        print(f"\n{Fore.CYAN}{'='*50}")
+        print(f"{Fore.CYAN}📊 STATISTICS{Fore.WHITE}")
+        print(f"{Fore.CYAN}{'='*50}")
+        print(f"Total checks: {len(self.results)}")
+        print(f"Accounts found: {len(accounts)}")
+        if accounts:
+            countries = {}
+            for r in accounts:
+                if r['country']:
+                    countries[r['country']] = countries.get(r['country'], 0) + 1
+            if countries:
+                print(f"\n{Fore.YELLOW}🌍 Country Distribution:{Fore.WHITE}")
+                for country, count in sorted(countries.items(), key=lambda x: x[1], reverse=True):
+                    print(f"   {country}: {count}")
+        input(f"\n{Fore.YELLOW}Press Enter to continue...")
+
+    def export_results(self):
+        clear_screen()
+        show_banner()
+        if not self.results:
+            print(f"\n{Fore.YELLOW}[!] No results to export.{Fore.WHITE}")
+            input(f"\n{Fore.YELLOW}Press Enter to continue...")
+            return
+        filename = input(f"\n{Fore.CYAN}[?] Export filename (default: results.json): {Fore.WHITE}").strip()
+        if not filename:
+            filename = "results.json"
+        with open(filename, 'w') as f:
+            json.dump(self.results, f, indent=2, default=str)
+        print(f"\n{Fore.GREEN}[+] Results saved to {filename}{Fore.WHITE}")
+        input(f"\n{Fore.YELLOW}Press Enter to continue...")
 
 
 def main():
-    parser = argparse.ArgumentParser(description='InstaTracer - Instagram Intelligence Tool')
-    parser.add_argument('-u', '--username', help='Instagram username to check')
-    parser.add_argument('-f', '--file', help='File with usernames (one per line)')
-    parser.add_argument('-o', '--output', help='Output file (JSON or CSV)')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
-
-    args = parser.parse_args()
-
-    if not args.username and not args.file:
-        parser.print_help()
-        return
-
-    tracer = InstaTracer(verbose=args.verbose)
-
-    if args.username:
-        result = tracer.analyze(args.username)
-        tracer.print_result(result)
-        if args.output:
-            with open(args.output, 'w') as f:
-                json.dump(result, f, indent=2)
-            print(f"\n[+] Results saved to {args.output}")
-
-    elif args.file:
-        with open(args.file, 'r') as f:
-            usernames = [line.strip() for line in f if line.strip()]
-
-        results = []
-        for username in usernames:
-            result = tracer.analyze(username)
-            tracer.print_result(result)
-            results.append(result)
-
-        if args.output:
-            with open(args.output, 'w') as f:
-                json.dump(results, f, indent=2)
-            print(f"\n[+] Results saved to {args.output}")
+    tracer = InstaTracer(verbose=True)  # Enable verbose to see debug output
+    while True:
+        clear_screen()
+        show_banner()
+        choice = input(f"\n{Fore.CYAN}[?] Select option (0-5): {Fore.WHITE}").strip()
+        if choice == '1':
+            tracer.single_check()
+        elif choice == '2':
+            tracer.bulk_check()
+        elif choice == '3':
+            tracer.show_stats()
+        elif choice == '4':
+            tracer.export_results()
+        elif choice == '5':
+            clear_screen()
+            show_banner()
+        elif choice == '0':
+            clear_screen()
+            print(f"\n{Fore.GREEN}👋 Thanks for using InstaTracer - CyberM{Fore.WHITE}\n")
+            sys.exit(0)
+        else:
+            print(f"\n{Fore.RED}[-] Invalid option{Fore.WHITE}")
+            time.sleep(1)
 
 
 if __name__ == '__main__':
